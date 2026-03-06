@@ -1,0 +1,21 @@
+server:
+  port: ":8080"
+
+mysql:
+  dsn: "user:password@tcp(127.0.0.1:3306)/database?charset=utf8mb4&parseTime=True&loc=Local"
+
+redis:
+  addr: "127.0.0.1:6379"
+  password: ""
+  db: 0
+
+kafka:
+  brokers:
+    - "127.0.0.1:9092"
+
+rabbitmq:
+  url: "amqp://guest:guest@localhost:5672/"
+jwt:
+  secret: "PopToy_FlashSale_Secret_Key_2026_Strict"
+  access_expire: 2 # Access Token 过期时间(小时)
+  refresh_expire: 168 # Refresh Token 过期时间(小时, 7天)
