@@ -1,7 +1,9 @@
 package user
 
 import (
+	"poptoy-flashsale/app/gateway/middleware"
 	"poptoy-flashsale/app/user/internal/controller"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -12,5 +14,9 @@ func RegisterRoutes(r *gin.RouterGroup) {
 	{
 		userGroup.POST("/register", controller.HandleRegister)
 		userGroup.POST("/login", controller.HandleLogin)
+		userGroup.POST("/refresh", controller.HandleRefresh)
+
+		authGroup := userGroup.Group("").Use(middleware.JWTAuth())
+		authGroup.POST("/logout", controller.HandleLogout)
 	}
 }

@@ -1,13 +1,17 @@
 package middleware
 
 import (
+	"context"
+	"errors"
 	"strings"
 
+	pkgCache "poptoy-flashsale/pkg/cache"
 	"poptoy-flashsale/pkg/e"
 	"poptoy-flashsale/pkg/jwt"
 	"poptoy-flashsale/pkg/response"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 )
 
 // JWTAuth JWT 鉴权中间件
@@ -36,9 +40,22 @@ func JWTAuth() gin.HandlerFunc {
 			return
 		}
 
+		ver, err := pkgCache.Rdb.Get(context.Background(), jwt.TokenVersionKey(claims.UserID)).Int64()
+		if err != nil && !errors.Is(err, redis.Nil) {
+			response.Error(c, e.Unauthorized)
+			c.Abort()
+			return
+		}
+		if err == nil && ver != claims.TokenVersion {
+			response.Error(c, e.Unauthorized)
+			c.Abort()
+			return
+		}
+
 		// 将 UserID 注入上下文，供后续 Controller 使用
 		c.Set("userID", claims.UserID)
 		c.Set("username", claims.Username)
+		c.Set("tokenVersion", claims.TokenVersion)
 		c.Next()
 	}
 }

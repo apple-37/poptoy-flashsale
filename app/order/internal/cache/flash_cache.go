@@ -3,7 +3,9 @@ package cache
 import (
 	"context"
 	"fmt"
+
 	"poptoy-flashsale/pkg/cache"
+
 	"github.com/redis/go-redis/v9"
 )
 
@@ -50,4 +52,16 @@ func ExecFlashBuy(ctx context.Context, productID uint64, userID uint64) (int, er
 		return 0, err
 	}
 	return result, nil
+}
+
+// RollbackFlashBuy 回滚预扣库存与一人一单标记。
+func RollbackFlashBuy(ctx context.Context, productID uint64, userID uint64) error {
+	stockKey := fmt.Sprintf("%s%d", FlashStockKeyPrefix, productID)
+	userSetKey := fmt.Sprintf("%s%d", FlashPurchasedKeyPrefix, productID)
+
+	pipe := cache.Rdb.Pipeline()
+	pipe.Incr(ctx, stockKey)
+	pipe.SRem(ctx, userSetKey, userID)
+	_, err := pipe.Exec(ctx)
+	return err
 }

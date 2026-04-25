@@ -7,9 +7,9 @@ import (
 
 func GetProductList(cursor uint64, limit int) ([]*model.ProductHot, error) {
 	var products []*model.ProductHot
-	
+
 	query := mysql.DB.Where("status = ?", 1)
-	
+
 	// 如果游标大于0，说明不是第一页，利用主键索引直接定位
 	if cursor > 0 {
 		// 假设按 ID 降序排列 (最新上架在前)
@@ -25,8 +25,8 @@ func GetProductDetail(id uint64) (*model.ProductDetail, error) {
 	var hot model.ProductHot
 	var cold model.ProductCold
 
-	// 1. 查热表
-	if err := mysql.DB.First(&hot, id).Error; err != nil {
+	// 1. 查热表 (仅上架商品)
+	if err := mysql.DB.Where("id = ? AND status = ?", id, 1).First(&hot).Error; err != nil {
 		return nil, err
 	}
 

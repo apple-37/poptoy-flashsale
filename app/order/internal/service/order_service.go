@@ -2,12 +2,16 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
-	"fmt"
+	"log"
 	"time"
 
 	"poptoy-flashsale/app/order/internal/cache"
+	"poptoy-flashsale/app/order/internal/model"
 	"poptoy-flashsale/app/order/internal/mq"
+	"poptoy-flashsale/app/order/internal/repository"
+	"poptoy-flashsale/pkg/idgen"
 )
 
 // FlashBuyReq 秒杀请求参数
@@ -16,8 +20,8 @@ type FlashBuyReq struct {
 }
 
 var (
-	ErrSoldOut   = errors.New("商品已售罄")
-	ErrDuplicate = errors.New("您已参与过该活动，请勿重复抢购")
+	ErrSoldOut    = errors.New("商品已售罄")
+	ErrDuplicate  = errors.New("您已参与过该活动，请勿重复抢购")
 	ErrSystemBusy = errors.New("系统繁忙，请稍后重试")
 )
 
@@ -36,8 +40,12 @@ func FlashBuy(ctx context.Context, userID uint64, req *FlashBuyReq) (string, err
 		return "", ErrDuplicate
 	}
 
-	// 2. 生成全局唯一订单号 (此处为了不引入新依赖，使用时间戳+用户ID简易生成，生产环境推荐 Snowflake)
-	orderNo := fmt.Sprintf("ORD%d%06d", time.Now().UnixNano()/1e6, userID%1000000)
+	// 2. 生成全局唯一订单号 (Snowflake)
+	orderNo, err := idgen.NewOrderNo()
+	if err != nil {
+		_ = cache.RollbackFlashBuy(ctx, req.ProductID, userID)
+		return "", ErrSystemBusy
+	}
 
 	// 3. 构建异步任务发往 RabbitMQ
 	task := &mq.FlashTask{
@@ -45,12 +53,31 @@ func FlashBuy(ctx context.Context, userID uint64, req *FlashBuyReq) (string, err
 		ProductID: req.ProductID,
 		OrderNo:   orderNo,
 	}
+	payload, err := json.Marshal(task)
+	if err != nil {
+		_ = cache.RollbackFlashBuy(ctx, req.ProductID, userID)
+		return "", ErrSystemBusy
+	}
+
+	outboxMsg := &model.OutboxMessage{
+		MessageType: model.OutboxTypeCreateOrderTask,
+		BizKey:      "flash:" + orderNo,
+		Payload:     string(payload),
+		Status:      model.OutboxStatusPending,
+		NextRetryAt: time.Now(),
+	}
+	if err := repository.CreateOutboxMessage(outboxMsg); err != nil {
+		_ = cache.RollbackFlashBuy(ctx, req.ProductID, userID)
+		return "", ErrSystemBusy
+	}
 
 	if err := mq.PublishFlashTask(ctx, task); err != nil {
-		// 极端情况：Redis 扣减了，但 MQ 发送失败。
-		// 真实的微服务中这里会有一张本地消息表(Local Message Table)做补偿。
-		// 这里简单处理为返回系统繁忙。
-		return "", ErrSystemBusy
+		log.Printf("[Order Service] 即时发送下单消息失败，已写入本地事务表等待补偿: order_no=%s err=%v", orderNo, err)
+		return orderNo, nil
+	}
+
+	if err := repository.MarkOutboxMessageSent(outboxMsg.ID); err != nil {
+		log.Printf("[Order Service] 标记本地下单消息已发送失败: outbox_id=%d err=%v", outboxMsg.ID, err)
 	}
 
 	// 4. 返回受理成功和生成的订单号

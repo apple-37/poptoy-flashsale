@@ -10,6 +10,7 @@ import (
 	"poptoy-flashsale/app/user"
 	"poptoy-flashsale/pkg/cache"
 	"poptoy-flashsale/pkg/config"
+	"poptoy-flashsale/pkg/idgen"
 	"poptoy-flashsale/pkg/mq"
 	"poptoy-flashsale/pkg/mysql"
 
@@ -22,7 +23,11 @@ func main() {
 
 	// 2. 初始化核心中间件与数据库
 	mysql.InitDB()
+	order.InitStorage()
 	cache.InitRedis()
+	if err := idgen.InitSnowflake(config.GlobalConfig.App.NodeID); err != nil {
+		log.Fatalf("Snowflake 初始化失败: %v", err)
+	}
 	mq.InitRabbitMQ()
 	defer mq.Close()
 
@@ -46,7 +51,7 @@ func main() {
 	// 6. 启动 Web 服务
 	addr := fmt.Sprintf(":%d", config.GlobalConfig.App.Port)
 	log.Printf("==== PopToy FlashSale 系统启动成功，监听端口 %s ====\n", addr)
-	
+
 	if err := r.Run(addr); err != nil {
 		log.Fatalf("启动服务器失败: %v", err)
 	}

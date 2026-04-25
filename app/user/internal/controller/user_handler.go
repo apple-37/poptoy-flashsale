@@ -38,7 +38,7 @@ func HandleLogin(c *gin.Context) {
 		return
 	}
 
-	code, accesstoken, refreshToken,err := service.Login(&req)
+	code, accessToken, refreshToken, err := service.Login(&req)
 	if err != nil {
 		response.Error(c, code)
 		return
@@ -46,7 +46,50 @@ func HandleLogin(c *gin.Context) {
 
 	// 返回 200 OK 及 Token
 	response.Success(c, gin.H{
-		"access_token": accesstoken,
-		"refresh_token":refreshToken,
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
 	})
+}
+
+// HandleRefresh 刷新 Token 接口。
+func HandleRefresh(c *gin.Context) {
+	var req service.RefreshReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.ErrorWithMsg(c, e.InvalidParams, err.Error())
+		return
+	}
+
+	code, accessToken, refreshToken, err := service.Refresh(&req)
+	if err != nil {
+		response.Error(c, code)
+		return
+	}
+
+	response.Success(c, gin.H{
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+	})
+}
+
+// HandleLogout 登出并使当前用户旧 Token 全部失效。
+func HandleLogout(c *gin.Context) {
+	userIDAny, exists := c.Get("userID")
+	if !exists {
+		response.Error(c, e.Unauthorized)
+		return
+	}
+
+	userID, ok := userIDAny.(uint64)
+	if !ok {
+		response.Error(c, e.Unauthorized)
+		return
+	}
+
+	code, err := service.Logout(userID)
+	if err != nil {
+		response.Error(c, code)
+		return
+	}
+
+	response.Success(c, gin.H{"logged_out": true})
 }

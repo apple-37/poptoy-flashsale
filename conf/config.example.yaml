@@ -1,20 +1,23 @@
-server:
-  port: ":8080"
+app:
+  name: "poptoy-flashsale"
+  mode: "debug" # debug or release
+  port: 8080
+  node_id: 1 # Snowflake 节点 ID, 范围 [0,1023]
 
 mysql:
   dsn: "user:password@tcp(127.0.0.1:3306)/database?charset=utf8mb4&parseTime=True&loc=Local"
+  max_idle_conns: 10
+  max_open_conns: 100
 
 redis:
   addr: "127.0.0.1:6379"
   password: ""
   db: 0
-
-kafka:
-  brokers:
-    - "127.0.0.1:9092"
+  pool_size: 100
 
 rabbitmq:
   url: "amqp://guest:guest@localhost:5672/"
+
 jwt:
   secret: "PopToy_FlashSale_Secret_Key_2026_Strict"
   access_expire: 2 # Access Token 过期时间(小时)
