@@ -39,3 +39,15 @@ func GetProductDetail(id uint64) (*model.ProductDetail, error) {
 		ImagesJson:  cold.ImagesJson,
 	}, nil
 }
+
+// GetProductByID 根据 ID 查询商品
+func GetProductByID(id uint64) (*model.ProductHot, error) {
+	var product model.ProductHot
+	err := mysql.DB.Where("id = ?", id).First(&product).Error
+	return &product, err
+}
+
+// UpdateProductStatus 更新商品状态
+func UpdateProductStatus(productID uint64, status int8) error {
+	return mysql.DB.Model(&model.ProductHot{}).Where("id = ?", productID).Update("status", status).Error
+}

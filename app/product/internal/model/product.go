@@ -8,7 +8,7 @@ type ProductHot struct {
 	Title     string    `gorm:"type:varchar(128);not null;default:''" json:"title"`
 	Price     float64   `gorm:"type:decimal(10,2);not null;default:0.00" json:"price"`
 	Stock     int       `gorm:"not null;default:0" json:"stock"`
-	Status    int8      `gorm:"not null;default:1" json:"status"` // 1:上架 0:下架
+	Status    int8      `gorm:"not null;default:0" json:"status"` // 0:待审核 1:上架 2:下架 3:售罄 4:预售
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
 }
 

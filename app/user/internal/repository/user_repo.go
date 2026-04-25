@@ -27,3 +27,8 @@ func GetUserByUsername(username string) (*model.User, error) {
 	}
 	return &user, nil
 }
+
+// UpdateUserStatus 更新用户状态
+func UpdateUserStatus(userID uint64, status int8) error {
+	return mysql.DB.Model(&model.User{}).Where("id = ?", userID).Update("status", status).Error
+}

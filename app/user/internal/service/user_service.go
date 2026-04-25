@@ -10,6 +10,7 @@ import (
 	"poptoy-flashsale/app/user/internal/repository"
 	pkgCache "poptoy-flashsale/pkg/cache"
 	"poptoy-flashsale/pkg/e"
+	"poptoy-flashsale/pkg/fsm"
 	"poptoy-flashsale/pkg/jwt"
 
 	"github.com/redis/go-redis/v9"
@@ -59,10 +60,25 @@ func Register(req *RegisterReq) (int, error) {
 	newUser := &model.User{
 		Username:     req.Username,
 		PasswordHash: string(hashBytes),
+		Status:       int8(fsm.UserStateRegistered), // 初始状态为已注册
 	}
 	if err := repository.CreateUser(newUser); err != nil {
 		log.Printf("[User Service] 创建用户失败: %v\n", err)
 		return e.Error, err
+	}
+
+	// 4. 使用状态机管理用户状态
+	userFSM := fsm.NewUserFSM(fsm.UserStateRegistered)
+	
+	// 注册状态转换动作
+	userFSM.AddTransition(fsm.UserStateRegistered, fsm.UserEventActivate, fsm.UserStateActive, func(userID uint64) error {
+		return repository.UpdateUserStatus(userID, int8(fsm.UserStateActive))
+	})
+
+	// 触发激活事件
+	if err := userFSM.Trigger(fsm.UserEventActivate, newUser.ID); err != nil {
+		log.Printf("[User Service] 激活用户失败: %v\n", err)
+		// 激活失败不影响注册流程
 	}
 
 	return e.Created, nil
