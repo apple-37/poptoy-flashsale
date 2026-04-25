@@ -18,10 +18,13 @@ type Config struct {
 }
 
 type AppConfig struct {
-	Name   string
-	Mode   string
-	Port   int
-	NodeID int64 `mapstructure:"node_id"`
+	Name        string
+	Mode        string
+	Port        int
+	UserPort    int `mapstructure:"user_port"`
+	ProductPort int `mapstructure:"product_port"`
+	OrderPort   int `mapstructure:"order_port"`
+	NodeID      int64 `mapstructure:"node_id"`
 }
 
 type MySQLConfig struct {
@@ -75,6 +78,18 @@ func validateConfig(cfg *Config) error {
 
 	if cfg.App.Port <= 0 || cfg.App.Port > 65535 {
 		return fmt.Errorf("app.port 非法: %d", cfg.App.Port)
+	}
+
+	if cfg.App.UserPort <= 0 || cfg.App.UserPort > 65535 {
+		return fmt.Errorf("app.user_port 非法: %d", cfg.App.UserPort)
+	}
+
+	if cfg.App.ProductPort <= 0 || cfg.App.ProductPort > 65535 {
+		return fmt.Errorf("app.product_port 非法: %d", cfg.App.ProductPort)
+	}
+
+	if cfg.App.OrderPort <= 0 || cfg.App.OrderPort > 65535 {
+		return fmt.Errorf("app.order_port 非法: %d", cfg.App.OrderPort)
 	}
 
 	mode := strings.ToLower(strings.TrimSpace(cfg.App.Mode))

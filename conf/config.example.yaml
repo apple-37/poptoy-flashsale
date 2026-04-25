@@ -2,6 +2,9 @@ app:
   name: "poptoy-flashsale"
   mode: "debug" # debug or release
   port: 8080
+  user_port: 8081
+  product_port: 8082
+  order_port: 8083
   node_id: 1 # Snowflake 节点 ID, 范围 [0,1023]
 
 mysql:
