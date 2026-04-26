@@ -26,4 +26,7 @@ func InitRedis() {
 		log.Fatalf("Redis 连接失败: %v", err)
 	}
 	log.Println("Redis 连接成功!")
+
+	// 初始化布隆过滤器
+	InitBloomFilters()
 }

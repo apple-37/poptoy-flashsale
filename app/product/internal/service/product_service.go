@@ -1,6 +1,7 @@
 package service
 
 import (
+	"poptoy-flashsale/app/product/internal/cache"
 	"poptoy-flashsale/app/product/internal/model"
 	"poptoy-flashsale/app/product/internal/repository"
 	"poptoy-flashsale/pkg/fsm"
@@ -19,23 +20,53 @@ func UpdateProductStatus(productID uint64, event fsm.ProductEvent) error {
 	
 	// 注册状态转换动作
 	productFSM.AddTransition(fsm.ProductStatePending, fsm.ProductEventApprove, fsm.ProductStateOnSale, func(id uint64) error {
-		return repository.UpdateProductStatus(id, int8(fsm.ProductStateOnSale))
+		err := repository.UpdateProductStatus(id, int8(fsm.ProductStateOnSale))
+		if err == nil {
+			// 状态变更，使缓存失效
+			_ = cache.InvalidateProductDetail(id)
+			_ = cache.InvalidateProductList()
+		}
+		return err
 	})
 	
 	productFSM.AddTransition(fsm.ProductStateOnSale, fsm.ProductEventTakeOff, fsm.ProductStateOffSale, func(id uint64) error {
-		return repository.UpdateProductStatus(id, int8(fsm.ProductStateOffSale))
+		err := repository.UpdateProductStatus(id, int8(fsm.ProductStateOffSale))
+		if err == nil {
+			// 状态变更，使缓存失效
+			_ = cache.InvalidateProductDetail(id)
+			_ = cache.InvalidateProductList()
+		}
+		return err
 	})
 	
 	productFSM.AddTransition(fsm.ProductStateOnSale, fsm.ProductEventSellOut, fsm.ProductStateSoldOut, func(id uint64) error {
-		return repository.UpdateProductStatus(id, int8(fsm.ProductStateSoldOut))
+		err := repository.UpdateProductStatus(id, int8(fsm.ProductStateSoldOut))
+		if err == nil {
+			// 状态变更，使缓存失效
+			_ = cache.InvalidateProductDetail(id)
+			_ = cache.InvalidateProductList()
+		}
+		return err
 	})
 	
 	productFSM.AddTransition(fsm.ProductStateOffSale, fsm.ProductEventPutOn, fsm.ProductStateOnSale, func(id uint64) error {
-		return repository.UpdateProductStatus(id, int8(fsm.ProductStateOnSale))
+		err := repository.UpdateProductStatus(id, int8(fsm.ProductStateOnSale))
+		if err == nil {
+			// 状态变更，使缓存失效
+			_ = cache.InvalidateProductDetail(id)
+			_ = cache.InvalidateProductList()
+		}
+		return err
 	})
 	
 	productFSM.AddTransition(fsm.ProductStateSoldOut, fsm.ProductEventRestock, fsm.ProductStateOnSale, func(id uint64) error {
-		return repository.UpdateProductStatus(id, int8(fsm.ProductStateOnSale))
+		err := repository.UpdateProductStatus(id, int8(fsm.ProductStateOnSale))
+		if err == nil {
+			// 状态变更，使缓存失效
+			_ = cache.InvalidateProductDetail(id)
+			_ = cache.InvalidateProductList()
+		}
+		return err
 	})
 	
 	// 触发事件
@@ -46,11 +77,48 @@ func GetProductList(cursor uint64, size int) ([]*model.ProductHot, error) {
 	if size < 1 || size > 100 {
 		size = 10
 	}
-	return repository.GetProductList(cursor, size)
+
+	// 1. 尝试从缓存获取
+	list, err := cache.GetProductList(cursor, size)
+	if err == nil && list != nil {
+		return list, nil
+	}
+
+	// 2. 缓存未命中，从数据库查询
+	list, err = repository.GetProductList(cursor, size)
+	if err != nil {
+		return nil, err
+	}
+
+	// 3. 存入缓存
+	_ = cache.SetProductList(cursor, size, list)
+
+	// 4. 批量添加到布隆过滤器
+	_ = cache.BatchAddProductsToBloomFilter(list)
+
+	return list, nil
 }
 // GetProductDetail 获取商品完整详情
 func GetProductDetail(id uint64) (*model.ProductDetail, error) {
-	return repository.GetProductDetail(id)
+	// 1. 尝试从缓存获取 (包含布隆过滤器检查)
+	detail, err := cache.GetProductDetail(id)
+	if err == nil && detail != nil {
+		return detail, nil
+	}
+
+	// 2. 缓存未命中，从数据库查询
+	detail, err = repository.GetProductDetail(id)
+	if err != nil {
+		return nil, err
+	}
+
+	// 3. 存入缓存
+	_ = cache.SetProductDetail(id, detail)
+
+	// 4. 添加到布隆过滤器
+	_ = cache.AddProductToBloomFilter(id)
+
+	return detail, nil
 }
 
 // ApproveProduct 审核商品
