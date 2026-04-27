@@ -14,63 +14,10 @@ func UpdateProductStatus(productID uint64, event fsm.ProductEvent) error {
 	if err != nil {
 		return err
 	}
-	
-	// 创建商品状态机
-	productFSM := fsm.NewProductFSM(fsm.ProductState(product.Status))
-	
-	// 注册状态转换动作
-	productFSM.AddTransition(fsm.ProductStatePending, fsm.ProductEventApprove, fsm.ProductStateOnSale, func(id uint64) error {
-		err := repository.UpdateProductStatus(id, int8(fsm.ProductStateOnSale))
-		if err == nil {
-			// 状态变更，使缓存失效
-			_ = cache.InvalidateProductDetail(id)
-			_ = cache.InvalidateProductList()
-		}
-		return err
-	})
-	
-	productFSM.AddTransition(fsm.ProductStateOnSale, fsm.ProductEventTakeOff, fsm.ProductStateOffSale, func(id uint64) error {
-		err := repository.UpdateProductStatus(id, int8(fsm.ProductStateOffSale))
-		if err == nil {
-			// 状态变更，使缓存失效
-			_ = cache.InvalidateProductDetail(id)
-			_ = cache.InvalidateProductList()
-		}
-		return err
-	})
-	
-	productFSM.AddTransition(fsm.ProductStateOnSale, fsm.ProductEventSellOut, fsm.ProductStateSoldOut, func(id uint64) error {
-		err := repository.UpdateProductStatus(id, int8(fsm.ProductStateSoldOut))
-		if err == nil {
-			// 状态变更，使缓存失效
-			_ = cache.InvalidateProductDetail(id)
-			_ = cache.InvalidateProductList()
-		}
-		return err
-	})
-	
-	productFSM.AddTransition(fsm.ProductStateOffSale, fsm.ProductEventPutOn, fsm.ProductStateOnSale, func(id uint64) error {
-		err := repository.UpdateProductStatus(id, int8(fsm.ProductStateOnSale))
-		if err == nil {
-			// 状态变更，使缓存失效
-			_ = cache.InvalidateProductDetail(id)
-			_ = cache.InvalidateProductList()
-		}
-		return err
-	})
-	
-	productFSM.AddTransition(fsm.ProductStateSoldOut, fsm.ProductEventRestock, fsm.ProductStateOnSale, func(id uint64) error {
-		err := repository.UpdateProductStatus(id, int8(fsm.ProductStateOnSale))
-		if err == nil {
-			// 状态变更，使缓存失效
-			_ = cache.InvalidateProductDetail(id)
-			_ = cache.InvalidateProductList()
-		}
-		return err
-	})
-	
-	// 触发事件
-	return productFSM.Trigger(event, productID)
+
+	// 无实例触发状态流转
+	_, err = fsm.TriggerProductEvent(fsm.ProductState(product.Status), event, productID)
+	return err
 }
 
 func GetProductList(cursor uint64, size int) ([]*model.ProductHot, error) {

@@ -51,3 +51,14 @@ func GetProductByID(id uint64) (*model.ProductHot, error) {
 func UpdateProductStatus(productID uint64, status int8) error {
 	return mysql.DB.Model(&model.ProductHot{}).Where("id = ?", productID).Update("status", status).Error
 }
+
+// UpdateProductStatusIfCurrent 仅当当前状态等于 expectedStatus 时更新状态。
+func UpdateProductStatusIfCurrent(productID uint64, expectedStatus int8, status int8) (bool, error) {
+	res := mysql.DB.Model(&model.ProductHot{}).
+		Where("id = ? AND status = ?", productID, expectedStatus).
+		Update("status", status)
+	if res.Error != nil {
+		return false, res.Error
+	}
+	return res.RowsAffected > 0, nil
+}

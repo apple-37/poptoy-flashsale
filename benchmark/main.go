@@ -14,7 +14,7 @@ import (
 // 配置项
 const (
 	BaseURL    = "http://localhost:8080/api/v1"
-	TotalUsers = 1000 // 模拟用户数
+	TotalUsers = 10000000 // 模拟用户数
 	ProductID  = 101  // 商品ID
 )
 
@@ -52,7 +52,7 @@ func main() {
 	}
 	players := make(chan Player, TotalUsers)
 
-	// 1. 启动 1000 个协程进行注册和登录 (蓄水阶段)
+	// 1. 启动 10000000 个协程进行注册和登录 (蓄水阶段)
 	for i := 1; i <= TotalUsers; i++ {
 		go func(uid int) {
 			defer wg.Done()
@@ -84,7 +84,7 @@ func main() {
 	close(players)
 	fmt.Printf("✅ 环境准备完成！注册成功: %d, 登录成功: %d\n", registerOk, loginOk)
 	fmt.Println("------------------------------------------------")
-	fmt.Println("🔥 3秒后开始 1000 人并发秒杀！Ready...")
+	fmt.Println("🔥 3秒后开始 10000000 人并发秒杀！Ready...")
 	time.Sleep(1 * time.Second)
 	fmt.Println("3...")
 	time.Sleep(1 * time.Second)

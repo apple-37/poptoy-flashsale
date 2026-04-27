@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"poptoy-flashsale/app/user/internal/router"
+	"poptoy-flashsale/app/user/internal/service"
 	"poptoy-flashsale/pkg/cache"
 	"poptoy-flashsale/pkg/config"
 	"poptoy-flashsale/pkg/mysql"
@@ -37,6 +38,7 @@ func main() {
 	// 2. 初始化核心中间件与数据库
 	mysql.InitDB()
 	cache.InitRedis()
+	service.InitFSM()
 
 	// 3. 设置 Gin 引擎
 	gin.SetMode(config.GlobalConfig.App.Mode)

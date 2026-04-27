@@ -10,6 +10,7 @@ import (
 
 	"poptoy-flashsale/app/order/internal/bootstrap"
 	"poptoy-flashsale/app/order/internal/router"
+	"poptoy-flashsale/app/order/internal/service"
 	"poptoy-flashsale/pkg/cache"
 	"poptoy-flashsale/pkg/config"
 	"poptoy-flashsale/pkg/idgen"
@@ -47,6 +48,7 @@ func main() {
 	}
 	mq.InitRabbitMQ()
 	defer mq.Close()
+	service.InitFSM()
 
 	// 3. 启动 Order 模块的后台消费者 Worker (监听秒杀与死信队列)
 	ctx, cancel := context.WithCancel(context.Background())

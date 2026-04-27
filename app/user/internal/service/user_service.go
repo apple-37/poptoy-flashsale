@@ -67,16 +67,8 @@ func Register(req *RegisterReq) (int, error) {
 		return e.Error, err
 	}
 
-	// 4. 使用状态机管理用户状态
-	userFSM := fsm.NewUserFSM(fsm.UserStateRegistered)
-	
-	// 注册状态转换动作
-	userFSM.AddTransition(fsm.UserStateRegistered, fsm.UserEventActivate, fsm.UserStateActive, func(userID uint64) error {
-		return repository.UpdateUserStatus(userID, int8(fsm.UserStateActive))
-	})
-
-	// 触发激活事件
-	if err := userFSM.Trigger(fsm.UserEventActivate, newUser.ID); err != nil {
+	// 4. 无实例触发状态流转
+	if _, err := fsm.TriggerUserEvent(fsm.UserStateRegistered, fsm.UserEventActivate, newUser.ID); err != nil {
 		log.Printf("[User Service] 激活用户失败: %v\n", err)
 		// 激活失败不影响注册流程
 	}

@@ -8,3 +8,5 @@ conf/*.yaml
 # 忽略编译产物
 *.exe
 go-flash-job
+
+docs/

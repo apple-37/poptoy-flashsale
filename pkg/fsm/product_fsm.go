@@ -1,6 +1,8 @@
 // pkg/fsm/product_fsm.go
 package fsm
 
+import "fmt"
+
 // 商品状态定义
 type ProductState int8
 
@@ -29,20 +31,86 @@ type ProductFSM struct {
 	engine *Engine[ProductState, ProductEvent]
 }
 
+var (
+	productApproveAction func(productID uint64) error
+	productTakeOffAction func(productID uint64) error
+	productSellOutAction func(productID uint64) error
+	productPutOnAction   func(productID uint64) error
+	productRestockAction func(productID uint64) error
+)
+
+type productTransitionDef struct {
+	next   ProductState
+	action func() func(productID uint64) error
+}
+
+var productTransitionTable = map[ProductState]map[ProductEvent]productTransitionDef{
+	ProductStatePending: {
+		ProductEventApprove: {next: ProductStateOnSale, action: func() func(productID uint64) error { return productApproveAction }},
+	},
+	ProductStateOnSale: {
+		ProductEventTakeOff: {next: ProductStateOffSale, action: func() func(productID uint64) error { return productTakeOffAction }},
+		ProductEventSellOut: {next: ProductStateSoldOut, action: func() func(productID uint64) error { return productSellOutAction }},
+	},
+	ProductStateOffSale: {
+		ProductEventPutOn: {next: ProductStateOnSale, action: func() func(productID uint64) error { return productPutOnAction }},
+	},
+	ProductStateSoldOut: {
+		ProductEventRestock: {next: ProductStateOnSale, action: func() func(productID uint64) error { return productRestockAction }},
+	},
+}
+
+// InitProductFSMActions 在应用启动阶段注册商品 FSM 动作。
+func InitProductFSMActions(
+	approveAction func(productID uint64) error,
+	takeOffAction func(productID uint64) error,
+	sellOutAction func(productID uint64) error,
+	putOnAction func(productID uint64) error,
+	restockAction func(productID uint64) error,
+) {
+	productApproveAction = approveAction
+	productTakeOffAction = takeOffAction
+	productSellOutAction = sellOutAction
+	productPutOnAction = putOnAction
+	productRestockAction = restockAction
+}
+
+// TriggerProductEvent 触发商品状态流转（无实例模式）。
+func TriggerProductEvent(currentState ProductState, event ProductEvent, productID uint64) (ProductState, error) {
+	stateMap, ok := productTransitionTable[currentState]
+	if !ok {
+		return currentState, fmt.Errorf("当前状态下没有可执行的事件")
+	}
+
+	def, ok := stateMap[event]
+	if !ok {
+		return currentState, fmt.Errorf("非法流转: 无法从状态 %v 执行事件 %v", currentState, event)
+	}
+
+	action := def.action()
+	if action != nil {
+		if err := action(productID); err != nil {
+			return currentState, fmt.Errorf("执行事件 %v 动作失败: %w", event, err)
+		}
+	}
+
+	return def.next, nil
+}
+
 // NewProductFSM 创建商品状态机
 func NewProductFSM(initState ProductState) *ProductFSM {
 	engine := NewEngine[ProductState, ProductEvent](initState)
 	
 	// 注册默认转换规则
-	engine.AddTransition(ProductStatePending, ProductEventApprove, ProductStateOnSale, nil)
-	engine.AddTransition(ProductStateOnSale, ProductEventTakeOff, ProductStateOffSale, nil)
-	engine.AddTransition(ProductStateOnSale, ProductEventSellOut, ProductStateSoldOut, nil)
-	engine.AddTransition(ProductStateOffSale, ProductEventPutOn, ProductStateOnSale, nil)
-	engine.AddTransition(ProductStateSoldOut, ProductEventRestock, ProductStateOnSale, nil)
+	f := &ProductFSM{engine: engine}
 	
-	return &ProductFSM{
-		engine: engine,
-	}
+	f.AddTransition(ProductStatePending, ProductEventApprove, ProductStateOnSale, productApproveAction)
+	f.AddTransition(ProductStateOnSale, ProductEventTakeOff, ProductStateOffSale, productTakeOffAction)
+	f.AddTransition(ProductStateOnSale, ProductEventSellOut, ProductStateSoldOut, productSellOutAction)
+	f.AddTransition(ProductStateOffSale, ProductEventPutOn, ProductStateOnSale, productPutOnAction)
+	f.AddTransition(ProductStateSoldOut, ProductEventRestock, ProductStateOnSale, productRestockAction)
+	
+	return f
 }
 
 // AddTransition 注册状态转换规则

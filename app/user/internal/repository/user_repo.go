@@ -32,3 +32,25 @@ func GetUserByUsername(username string) (*model.User, error) {
 func UpdateUserStatus(userID uint64, status int8) error {
 	return mysql.DB.Model(&model.User{}).Where("id = ?", userID).Update("status", status).Error
 }
+
+// UpdateUserStatusIfCurrent 仅当当前状态等于 expectedStatus 时更新状态。
+func UpdateUserStatusIfCurrent(userID uint64, expectedStatus int8, status int8) (bool, error) {
+	res := mysql.DB.Model(&model.User{}).
+		Where("id = ? AND status = ?", userID, expectedStatus).
+		Update("status", status)
+	if res.Error != nil {
+		return false, res.Error
+	}
+	return res.RowsAffected > 0, nil
+}
+
+// UpdateUserStatusIfCurrentIn 仅当当前状态在 expectedStatuses 中时更新状态。
+func UpdateUserStatusIfCurrentIn(userID uint64, expectedStatuses []int8, status int8) (bool, error) {
+	res := mysql.DB.Model(&model.User{}).
+		Where("id = ? AND status IN ?", userID, expectedStatuses).
+		Update("status", status)
+	if res.Error != nil {
+		return false, res.Error
+	}
+	return res.RowsAffected > 0, nil
+}
